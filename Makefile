@@ -4,7 +4,8 @@ SRC_DIR = examples/src/
 BUILD_DIR = examples/
 LIB_DIR = $(SRC_DIR)lib/
 
-examples = test rawrgb step fbuf interp video hotspot sdlscale 
+examples = test rawrgb step fbuf interp video hotspot mlx2bin
+#sdlscale
 examples_objects = $(addsuffix .o,$(addprefix $(SRC_DIR), $(examples)))
 examples_output = $(addprefix $(BUILD_DIR), $(examples))
 
@@ -70,6 +71,9 @@ $(BUILD_DIR)interp: $(SRC_DIR)interp.o $(LIB_DIR)interpolate.o $(LIB_DIR)fb.o li
 
 $(BUILD_DIR)video: $(SRC_DIR)video.o $(LIB_DIR)fb.o libMLX90640_API.a
 	$(CXX) -L/home/pi/mlx90640-library $^ -o $@ $(I2C_LIBS) -lavcodec -lavutil -lavformat
+
+$(BUILD_DIR)mlx2bin: $(SRC_DIR)mlx2bin.o libMLX90640_API.a
+	$(CXX) $^ -o $@ $(I2C_LIBS)
 
 bcm2835-1.55.tar.gz:	
 	wget http://www.airspayce.com/mikem/bcm2835/bcm2835-1.55.tar.gz
