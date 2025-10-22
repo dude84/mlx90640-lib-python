@@ -11,6 +11,7 @@ examples/video
 examples/sdlscale
 examples/rawrgb
 examples/hotspot
+examples/mlx2bin
 bcm2835-*
 *.egg-info
 *.py[cod]
