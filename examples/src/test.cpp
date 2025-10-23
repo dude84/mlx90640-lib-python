@@ -4,24 +4,59 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
+#include <cmath>
 #include "headers/MLX90640_API.h"
 
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_NONE    "\x1b[30m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
-
-//#define FMT_STRING "%+06.2f "
 #define FMT_STRING "\u2588\u2588"
-
 #define MLX_I2C_ADDR 0x33
+
+// Inferno colormap - perceptually uniform colormap
+// Maps value from 0.0 to 1.0 to RGB
+void inferno_colormap(float value, int &r, int &g, int &b) {
+    // Clamp value to [0, 1]
+    if (value < 0.0f) value = 0.0f;
+    if (value > 1.0f) value = 1.0f;
+
+    // Inferno colormap control points (sampled at key positions)
+    const int NUM_COLORS = 9;
+    static const float colors[NUM_COLORS][3] = {
+        {0.001462, 0.000466, 0.013866},  // 0.0 - dark purple/black
+        {0.087411, 0.044556, 0.224813},  // 0.125 - deep purple
+        {0.258234, 0.038571, 0.406485},  // 0.25 - purple
+        {0.416331, 0.090203, 0.432943},  // 0.375 - purple-red
+        {0.645581, 0.133503, 0.392508},  // 0.5 - red
+        {0.798216, 0.280197, 0.469538},  // 0.625 - orange-red
+        {0.924870, 0.517763, 0.295662},  // 0.75 - orange
+        {0.987622, 0.809330, 0.145357},  // 0.875 - yellow-orange
+        {0.988362, 0.998364, 0.644924}   // 1.0 - bright yellow
+    };
+
+    // Find the two colors to interpolate between
+    float scaled = value * (NUM_COLORS - 1);
+    int idx1 = (int)scaled;
+    int idx2 = idx1 + 1;
+
+    if (idx1 >= NUM_COLORS - 1) {
+        idx1 = idx2 = NUM_COLORS - 1;
+    }
+
+    float frac = scaled - idx1;
+
+    // Linear interpolation
+    float rf = colors[idx1][0] + (colors[idx2][0] - colors[idx1][0]) * frac;
+    float gf = colors[idx1][1] + (colors[idx2][1] - colors[idx1][1]) * frac;
+    float bf = colors[idx1][2] + (colors[idx2][2] - colors[idx1][2]) * frac;
+
+    r = (int)(rf * 255.0f);
+    g = (int)(gf * 255.0f);
+    b = (int)(bf * 255.0f);
+}
 
 int main(){
     int scale = 1; // Horizontal scaling factor (1-4 recommended)
+    float temp_min = 15.0f; // Minimum temperature for colormap (°C)
+    float temp_max = 35.0f; // Maximum temperature for colormap (°C)
+
     int state = 0;
     printf("Starting...\n");
     static uint16_t eeMLX90640[832];
@@ -81,40 +116,25 @@ int main(){
 
         for(int y = 0; y < 24; y++){
             for(int x = 0; x < 32; x++){
-                //std::cout << image[32 * y + x] << ",";
                 float val = mlx90640To[32 * (23-y) + x];
-                if(val > 99.99) val = 99.99;
-                const char* color;
-                if(val > 32.0){
-                    color = ANSI_COLOR_MAGENTA;
-                }
-                else if(val > 29.0){
-                    color = ANSI_COLOR_RED;
-                }
-                else if (val > 26.0){
-                    color = ANSI_COLOR_YELLOW;
-                }
-                else if ( val > 20.0 ){
-                    color = ANSI_COLOR_NONE;
-                }
-                else if (val > 17.0) {
-                    color = ANSI_COLOR_GREEN;
-                }
-                else if (val > 10.0) {
-                    color = ANSI_COLOR_CYAN;
-                }
-                else {
-                    color = ANSI_COLOR_BLUE;
-                }
-                printf("%s", color);
+
+                // Normalize temperature to 0-1 range
+                float normalized = (val - temp_min) / (temp_max - temp_min);
+
+                // Get RGB color from Inferno colormap
+                int r, g, b;
+                inferno_colormap(normalized, r, g, b);
+
+                // Print using ANSI 24-bit true color
+                printf("\x1b[38;2;%d;%d;%dm", r, g, b);
                 for(int s = 0; s < scale; s++){
                     printf(FMT_STRING, val);
                 }
-                printf(ANSI_COLOR_RESET);
+                printf("\x1b[0m");
             }
             std::cout << std::endl;
         }
-        //std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
         printf("\x1b[25A");
     }
     return 0;
