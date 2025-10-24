@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "pybind11>=2.6"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlx90640"
+version = "1.0.0"
+description = "Python wrapper for MLX90640 thermal camera (chess mode only)"
+readme = "README.md"
+requires-python = ">=3.6"
+dependencies = ["pybind11>=2.6"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: C++",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Hardware",
+]
