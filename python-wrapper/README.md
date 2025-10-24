@@ -104,10 +104,14 @@ make wheel
 
 ### What You Need to Deploy
 
-To deploy the wrapper to another system, you need:
+To deploy the wrapper to another system, you need these **essential files**:
 
-1. **The wheel file**: `dist/mlx90640-1.0.0-*.whl` (contains Python wrapper + compiled extension)
-2. **The C++ library**: `libMLX90640_API.so` (from parent directory)
+| File | Size | Purpose | Required |
+|------|------|---------|----------|
+| `dist/mlx90640-1.0.0-*.whl` | ~4 MB | Python wrapper + compiled extension | For wheel deployment |
+| `libMLX90640_API.so` | ~73 KB | Core C++ library | **Always required** |
+
+**Architecture Note**: The wheel is architecture-specific (e.g., `cp313-cp313-linux_aarch64.whl` for ARM/Raspberry Pi). Build on target architecture or cross-compile.
 
 ### Deployment Options
 
@@ -148,6 +152,125 @@ cd pimoroni-mlx90640-library/python-wrapper
 make all
 source venv/bin/activate
 ```
+
+### Quick Start: New Project Setup
+
+**Scenario 1: Using installed wrapper in a new project**
+
+If you've already run `make all` in python-wrapper, simply use it:
+
+```bash
+# Create your new project
+mkdir ~/my_thermal_app
+cd ~/my_thermal_app
+
+# Create your app (wrapper is already in venv)
+cat > thermal_app.py <<EOF
+import mlx90640
+camera = mlx90640.MLX90640Camera()
+camera.init()
+camera.set_refresh_rate(16)
+frame = camera.get_frame()
+print(f"Max: {frame.max():.2f}°C, Min: {frame.min():.2f}°C")
+camera.cleanup()
+EOF
+
+# Run (activate the existing venv first)
+source /path/to/pimoroni-mlx90640-library/python-wrapper/venv/bin/activate
+python thermal_app.py
+```
+
+**Scenario 2: Standalone project with wheel**
+
+For a completely independent project:
+
+```bash
+# 1. Create project with its own venv
+mkdir ~/my_thermal_app
+cd ~/my_thermal_app
+python3 -m venv venv
+source venv/bin/activate
+
+# 2. Copy required files
+cp /path/to/pimoroni-mlx90640-library/libMLX90640_API.so .
+cp /path/to/pimoroni-mlx90640-library/python-wrapper/dist/mlx90640-*.whl .
+
+# 3. Install wheel
+pip install mlx90640-*.whl
+
+# 4. Create your app
+cat > thermal_app.py <<EOF
+import mlx90640
+camera = mlx90640.MLX90640Camera()
+camera.init()
+camera.set_refresh_rate(16)
+frame = camera.get_frame()
+print(f"Max: {frame.max():.2f}°C, Min: {frame.min():.2f}°C")
+camera.cleanup()
+EOF
+
+# 5. Run
+python thermal_app.py
+```
+
+**Scenario 3: Source-based project**
+
+Deploy with full source control:
+
+```bash
+# 1. Create project and copy wrapper source
+mkdir ~/my_thermal_app
+cd ~/my_thermal_app
+
+# 2. Copy wrapper source files
+mkdir mlx90640
+cp /path/to/python-wrapper/mlx90640/{__init__.py,camera.h,camera.cpp} mlx90640/
+cp /path/to/python-wrapper/{setup.py,pyproject.toml,requirements.txt,MANIFEST.in} .
+cp /path/to/pimoroni-mlx90640-library/libMLX90640_API.so .
+
+# 3. Install in development mode
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+
+# 4. Create and run your app
+python thermal_app.py
+```
+
+### Required Files Reference
+
+**Core Runtime Files** (always needed):
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `libMLX90640_API.so` | Repository root | C++ library with sensor API and I2C drivers |
+| `mlx90640-*.whl` OR source | python-wrapper/ | Python wrapper (wheel or source files) |
+
+**Source Deployment Files** (if deploying from source):
+
+| File | Purpose | Required |
+|------|---------|----------|
+| `mlx90640/__init__.py` | Package interface | Yes |
+| `mlx90640/camera.cpp` | C++ implementation (pybind11) | Yes |
+| `mlx90640/camera.h` | C++ header | Yes |
+| `setup.py` | Build configuration | Yes |
+| `pyproject.toml` | PEP 517/518 config | Yes |
+| `requirements.txt` | Python dependencies | Recommended |
+| `MANIFEST.in` | Source distribution includes | Optional |
+
+**Build Artifacts** (auto-generated, don't copy):
+
+| File | Notes |
+|------|-------|
+| `mlx90640/_camera.*.so` | Compiled extension (rebuilt by pip) |
+| `mlx90640.egg-info/` | Package metadata (auto-generated) |
+| `__pycache__/` | Python bytecode (auto-generated) |
+| `dist/` | Built wheels (only copy .whl file itself) |
+| `venv/` | Virtual environment (don't copy, create new) |
+
+**Dependencies** (auto-installed by pip):
+- `pybind11>=2.6.0` - C++/Python bindings
+- `numpy` - Zero-copy array interface
 
 ### Important Notes
 
