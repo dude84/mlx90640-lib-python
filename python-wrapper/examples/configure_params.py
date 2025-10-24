@@ -29,9 +29,9 @@ def capture_frames(camera, count=5):
 
     for i in range(count):
         frame = camera.get_frame()
-        min_temp = min(frame)
-        max_temp = max(frame)
-        avg_temp = sum(frame) / len(frame)
+        min_temp = frame.min()
+        max_temp = frame.max()
+        avg_temp = frame.mean()
         temps.append((min_temp, max_temp, avg_temp))
         print(f"    Frame {i+1}: {min_temp:5.2f}°C - {max_temp:5.2f}°C (avg: {avg_temp:5.2f}°C)")
 

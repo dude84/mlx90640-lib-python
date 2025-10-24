@@ -4,62 +4,77 @@ VENV_PYTHON := $(VENV)/bin/python
 VENV_PIP := $(VENV)/bin/pip
 WHEEL := $(shell find dist -name "*.whl" 2>/dev/null | head -n1)
 
-.PHONY: help venv deps build install install-dev clean test wheel dist examples
+.PHONY: help all build install-dev clean test wheel dist examples
 
 help:
 	@echo "MLX90640 Python Wrapper Build System"
 	@echo ""
-	@echo "Prerequisites:"
-	@echo "  - MLX90640 C++ library built (make I2C_MODE=LINUX in parent directory)"
+	@echo "Quick Start:"
+	@echo "  make all              - Build C++ library + install Python wrapper"
+	@echo "  source venv/bin/activate"
+	@echo "  python examples/ascii_display.py"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make venv         - Create Python virtual environment"
-	@echo "  make deps         - Install Python dependencies in venv"
-	@echo "  make build        - Build extension module (for development)"
-	@echo "  make install-dev  - Install in development mode (editable)"
+	@echo "  make all          - Build main library and install wrapper (recommended)"
+	@echo "  make install-dev  - Install wrapper in development mode (auto-creates venv)"
+	@echo "  make build        - Build extension module in-place"
 	@echo "  make wheel        - Build distributable wheel package"
-	@echo "  make dist         - Build wheel + display path (for shipping)"
+	@echo "  make dist         - Build wheel + show deployment info"
 	@echo "  make install      - Install wheel into venv"
-	@echo "  make examples     - Run all examples"
-	@echo "  make test         - Run tests"
-	@echo "  make clean        - Remove build artifacts and venv"
+	@echo "  make examples     - Run example scripts"
+	@echo "  make clean        - Remove all build artifacts and venv"
 	@echo ""
-	@echo "Typical workflow:"
-	@echo "  1. cd .. && make I2C_MODE=LINUX  # Build main library"
-	@echo "  2. cd python-wrapper"
-	@echo "  3. make install-dev      # Setup venv, deps, and install"
-	@echo "  4. source venv/bin/activate"
-	@echo "  5. python examples/simple_capture.py  # Test"
+	@echo "Build Modes:"
+	@echo "  Release (default):  make all             # Optimized (-O3)"
+	@echo "  Debug:              make all DEBUG=1     # Debug symbols (-g)"
+	@echo ""
+	@echo "Target Explanations:"
+	@echo "  build       = Compile C++ extension only (for testing C++ changes)"
+	@echo "  install-dev = Editable install (Python changes auto-reflected)"
+	@echo "  install     = Production install from wheel (isolated copy)"
 
-# Create virtual environment
-venv:
-	@if [ -d "$(VENV)" ]; then \
-		echo "Virtual environment already exists in $(VENV)/"; \
-	else \
+# Build everything: main library + Python wrapper
+all:
+	@echo "========================================"
+	@echo "Building MLX90640 C++ Library"
+	@echo "========================================"
+	cd .. && $(MAKE) I2C_MODE=LINUX
+	@echo ""
+	@echo "========================================"
+	@echo "Installing Python Wrapper"
+	@echo "========================================"
+	$(MAKE) install-dev
+	@echo ""
+	@echo "========================================"
+	@echo "Build Complete!"
+	@echo "========================================"
+	@echo "To use:"
+	@echo "  source venv/bin/activate"
+	@echo "  python examples/ascii_display.py"
+
+# Install in development mode (auto-creates venv and installs deps)
+install-dev:
+	@if [ ! -d "$(VENV)" ]; then \
 		echo "Creating virtual environment..."; \
 		$(PYTHON) -m venv $(VENV); \
-		echo "Virtual environment created in $(VENV)/"; \
-		echo "To activate: source $(VENV)/bin/activate"; \
+		echo ""; \
 	fi
-
-# Install dependencies
-deps: venv
 	@echo "Installing dependencies..."
 	$(VENV_PIP) install --upgrade pip setuptools wheel
 	$(VENV_PIP) install -r requirements.txt
+	@echo ""
+	@echo "Installing wrapper in development mode..."
+	$(VENV_PIP) install -e .
+	@echo ""
+	@echo "Setup complete!"
 
-# Build extension in-place (development)
-build: deps
+# Build extension in-place (for C++ development)
+build: install-dev
 	@echo "Building extension module..."
 	$(VENV_PYTHON) setup.py build_ext --inplace
 
-# Install in development mode (editable)
-install-dev: deps
-	@echo "Installing in development mode..."
-	$(VENV_PIP) install -e .
-
 # Build distributable wheel
-wheel: deps
+wheel: install-dev
 	@echo "Building wheel package..."
 	$(VENV_PYTHON) setup.py bdist_wheel
 	@echo ""

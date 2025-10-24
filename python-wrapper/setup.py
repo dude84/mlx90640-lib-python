@@ -31,7 +31,7 @@ ext_modules = [
         libraries=['MLX90640_API'],
         library_dirs=[parent_dir],  # Local library build directory
         language='c++',
-        extra_compile_args=['-std=c++11', '-fPIC'],
+        extra_compile_args=['-std=c++11', '-fPIC', '-O3', '-march=native'],
         extra_link_args=[f'-Wl,-rpath,{parent_dir}'],
     ),
 ]

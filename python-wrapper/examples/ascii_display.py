@@ -114,9 +114,9 @@ def main():
             fps = frame_count / elapsed if elapsed > 0 else 0
 
             # Calculate statistics
-            min_temp = min(frame)
-            max_temp = max(frame)
-            avg_temp = sum(frame) / len(frame)
+            min_temp = frame.min()
+            max_temp = frame.max()
+            avg_temp = frame.mean()
 
             # Print header with stats
             print(f"FPS: {fps:5.2f} | Min: {min_temp:5.2f}°C | Max: {max_temp:5.2f}°C | Avg: {avg_temp:5.2f}°C")

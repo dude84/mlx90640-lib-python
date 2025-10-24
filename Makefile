@@ -9,8 +9,12 @@ examples = test rawrgb step fbuf interp video hotspot mlx2bin
 examples_objects = $(addsuffix .o,$(addprefix $(SRC_DIR), $(examples)))
 examples_output = $(addprefix $(BUILD_DIR), $(examples))
 
-#debugging enabled by default
-CXXFLAGS+=-DDEBUG -g
+# Build mode: release by default, debug if DEBUG=1
+ifdef DEBUG
+	CXXFLAGS+=-DDEBUG -g
+else
+	CXXFLAGS+=-O3 -march=native -DNDEBUG
+endif
 
 #PREFIX is environment variable, but if it is not set, then set default value
 ifeq ($(PREFIX),)

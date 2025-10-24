@@ -10,6 +10,7 @@ Demonstrates basic usage:
 """
 
 import mlx90640
+import numpy as np
 import sys
 
 
@@ -34,12 +35,16 @@ def main():
 
     # Configure camera
     print("\nConfiguring camera...")
-    camera.set_refresh_rate(16)      # 16 FPS
+    camera.set_refresh_rate(16)      # 16 Hz
     camera.set_emissivity(0.95)      # For human skin
     camera.set_resolution(3)         # 19-bit (highest quality)
 
     # Display configuration
-    print(f"  Refresh rate: {camera.get_refresh_rate()} Hz")
+    refresh_rate = camera.get_refresh_rate()
+    # Map refresh rate register value to Hz
+    refresh_rate_map = {0: 0.5, 1: 1, 2: 2, 3: 4, 4: 8, 5: 16, 6: 32, 7: 64}
+    refresh_hz = refresh_rate_map.get(refresh_rate, refresh_rate)
+    print(f"  Refresh rate: {refresh_hz} Hz")
     print(f"  Resolution: {camera.get_resolution()} (19-bit)")
     print(f"  Emissivity: {camera.get_emissivity()}")
 
@@ -53,14 +58,14 @@ def main():
     # Display statistics
     print(f"\nFrame Statistics:")
     print(f"  Pixels: {len(frame)}")
-    print(f"  Minimum: {min(frame):.2f}°C")
-    print(f"  Maximum: {max(frame):.2f}°C")
-    print(f"  Average: {sum(frame)/len(frame):.2f}°C")
-    print(f"  Range: {max(frame) - min(frame):.2f}°C")
+    print(f"  Minimum: {frame.min():.2f}°C")
+    print(f"  Maximum: {frame.max():.2f}°C")
+    print(f"  Average: {frame.mean():.2f}°C")
+    print(f"  Range: {frame.max() - frame.min():.2f}°C")
 
     # Find hottest pixel
-    max_temp = max(frame)
-    max_idx = frame.index(max_temp)
+    max_temp = frame.max()
+    max_idx = frame.argmax()
     max_row = max_idx // 32
     max_col = max_idx % 32
     print(f"\nHottest pixel:")
@@ -68,8 +73,8 @@ def main():
     print(f"  Position: row {max_row}, col {max_col}")
 
     # Find coldest pixel
-    min_temp = min(frame)
-    min_idx = frame.index(min_temp)
+    min_temp = frame.min()
+    min_idx = frame.argmin()
     min_row = min_idx // 32
     min_col = min_idx % 32
     print(f"\nColdest pixel:")

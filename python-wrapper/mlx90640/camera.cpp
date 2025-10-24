@@ -9,8 +9,6 @@
 #include <pybind11/numpy.h>
 #include <stdexcept>
 #include <cstring>
-#include <chrono>
-#include <thread>
 
 namespace py = pybind11;
 

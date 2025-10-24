@@ -106,7 +106,8 @@ static void video_encode_start(const char *outputfile, int fps, AVCodecID codec_
 #if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(57, 37, 100)
     snprintf(avFormatContext->filename, sizeof(avFormatContext->filename), "%s", outputfile);
 #else
-    snprintf(avFormatContext->url, sizeof(outputfile), "%s", outputfile);
+    // avFormatContext->url needs to be allocated in newer FFmpeg versions
+    avFormatContext->url = av_strdup(outputfile);
 #endif
 
     /* find the mpeg1 video encoder */
