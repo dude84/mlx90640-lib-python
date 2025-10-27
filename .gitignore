@@ -1,11 +1,20 @@
+# Editor files
 *.swp
+
+# Build artifacts - C++ library
 *.o
 *.a
 *.so
+lib/*.o
+
+# Dependencies
 bcm2835-*
+
+# Python build artifacts
 *.egg-info
 *.py[cod]
-python-wrapper/build
-python-wrapper/dist
-python-wrapper/venv
-python-wrapper/mlx90640/*.so
+__pycache__/
+build/
+dist/
+venv/
+mlx90640/*.so

@@ -17,22 +17,22 @@ class get_pybind_include(object):
 
 import os
 
-# Get absolute path to parent directory (where libMLX90640_API.so is)
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# Get absolute path to current directory (where libMLX90640_API.so is)
+current_dir = os.path.abspath(os.path.dirname(__file__))
 
 ext_modules = [
     Extension(
         'mlx90640._camera',
         sources=['mlx90640/camera.cpp'],
         include_dirs=[
-            os.path.join(parent_dir, 'headers'),  # Local headers from main library
+            os.path.join(current_dir, 'mlx90640/lib'),  # Local headers from mlx90640/lib/
             str(get_pybind_include()),
         ],
         libraries=['MLX90640_API'],
-        library_dirs=[parent_dir],  # Local library build directory
+        library_dirs=[current_dir],  # Local library build directory (root)
         language='c++',
         extra_compile_args=['-std=c++11', '-fPIC', '-O3', '-march=native'],
-        extra_link_args=[f'-Wl,-rpath,{parent_dir}'],
+        extra_link_args=[f'-Wl,-rpath,{current_dir}'],
     ),
 ]
 
@@ -50,7 +50,7 @@ setup(
     url='',
     packages=['mlx90640'],
     ext_modules=ext_modules,
-    install_requires=['pybind11>=2.6.0'],
+    install_requires=['pybind11>=2.6.0', 'numpy>=1.19.0'],
     python_requires='>=3.6',
     classifiers=[
         'Development Status :: 4 - Beta',

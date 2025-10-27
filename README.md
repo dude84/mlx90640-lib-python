@@ -1,157 +1,711 @@
-# mlx90640-library
+# MLX90640 Python Wrapper
 
-This Python wrapper of the Melexis MLX90640 library was written for use with the Raspberry Pi and our [MLX90640 breakout](https://shop.pimoroni.com/products/mlx90640-thermal-camera-breakout). While you are free to use this software with whatever combination of device you choose, we unfortunately lack the resources to test and support any other combinations.
+Standalone Python wrapper for the MLX90640 thermal camera sensor. Self-contained package that uses the local MLX90640 library build (no system-wide installation needed).
 
-** Warning: ** We have reason to believe that using this library in conjunction with a Jetson Nano could damage your device, please see: https://github.com/pimoroni/mlx90640-library/issues/38
+## Features
 
-## Raspberry Pi Users
+- **Chess mode only** - Sensor is calibrated for chess mode measurement pattern
+- **Self-pacing frame capture** - Blocking calls that wait for sensor (no manual timing needed)
+- **Zero-copy NumPy arrays** - High-performance frame capture (~15.8 FPS at 16 Hz)
+- **Configurable parameters**:
+  - Refresh rate: 1, 2, 4, 8, 16, 32, 64 Hz
+  - ADC resolution: 16, 17, 18, 19 bit
+  - Emissivity: 0.1 - 1.0
+- **Optional processing**:
+  - Outlier interpolation (fix outlier pixels)
+  - Bad pixel correction (compensate for broken/dead pixels)
+- **ASCII terminal display** - Real-time thermal display with Inferno colormap
+- **Optimized builds** - Release mode with -O3 optimization by default
 
-** EXPERIMENTAL **
+## Prerequisites
 
-This port uses either generic Linux I2C or the  bcm2835 library.
-Upon building, the mode is set with the I2C_MODE property, i.e. `make I2C_MODE=LINUX` or `make I2C_MODE=RPI`. The default is LINUX, without the need for the bcm2835 library or root access.
+### 1. Build Modes
 
-### Generic Linux I2C Mode
+The library supports two build modes:
 
-Make sure the Linux I2C dev library is installed:
+- **Release mode (default)**: Optimized with `-O3 -march=native` for maximum performance
+- **Debug mode**: Built with debug symbols for development
 
-```text
-sudo apt-get install libi2c-dev
+```bash
+# Release build (recommended)
+make all
+
+# Debug build (for development)
+make all DEBUG=1
 ```
 
-To get the best out of your sensor you should modify `/boot/config.txt` and change your I2C baudrate.
+### 2. MLX90640 C++ Library
 
-The fastest rate recommended for compatibility with other sensors is 400kHz. This is compatible with SMBus devices:
+The Python wrapper automatically builds the main library when you run `make all`. The library creates `libMLX90640_API.so` and `libMLX90640_API.a` which the Python wrapper links against.
 
-```text
-dtparam=i2c1_baudrate=400000
+### 3. System Requirements
+
+- Python 3.6 or higher
+- Python venv support
+- C++ compiler (g++)
+- I2C enabled on Raspberry Pi
+
+### 4. I2C Configuration
+
+Enable I2C and set baudrate for high-speed operation:
+
+Edit `/boot/config.txt`:
 ```
-
-This will give you a framerate of - at most - 8FPS.
-
-If you're just using the MLX90640 and, for example, the 1.12" OLED, you can safely use 1MHz:
-
-```text
+dtparam=i2c_arm=on
 dtparam=i2c1_baudrate=1000000
 ```
 
-This will give you a framerate of - at most - 32FPS.
+Reboot and verify:
+```bash
+i2cdetect -y 1
+# Should show device at address 0x33
+```
 
-Now build the MLX90640 library and examples in LINUX I2C mode:
+Add user to i2c group (if needed):
+```bash
+sudo usermod -a -G i2c $USER
+# Log out and back in for this to take effect
+```
 
-```text
+## Installation
+
+### Quick Start
+
+The simplest way to build and install everything:
+
+```bash
+cd python-wrapper
+make all
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Run example
+python examples/ascii_display.py
+```
+
+That's it! The `make all` command:
+1. Builds the C++ library with optimizations
+2. Creates a Python virtual environment
+3. Installs all dependencies
+4. Installs the wrapper in development mode
+
+### Build Distributable Wheel
+
+To create a wheel package for deployment:
+
+```bash
+make wheel
+
+# Result: dist/mlx90640-1.0.0-*.whl
+```
+
+## Deployment
+
+### What You Need to Deploy
+
+To deploy the wrapper to another system, you need these **essential files**:
+
+| File | Size | Purpose | Required |
+|------|------|---------|----------|
+| `dist/mlx90640-1.0.0-*.whl` | ~4 MB | Python wrapper + compiled extension | For wheel deployment |
+| `libMLX90640_API.so` | ~73 KB | Core C++ library | **Always required** |
+
+**Architecture Note**: The wheel is architecture-specific (e.g., `cp313-cp313-linux_aarch64.whl` for ARM/Raspberry Pi). Build on target architecture or cross-compile.
+
+### Deployment Options
+
+**Option 1: Deploy with wheel file** (recommended for Python projects)
+
+```bash
+# On target system
+# 1. Copy both files to target
+scp dist/mlx90640-*.whl target:/tmp/
+scp ../libMLX90640_API.so target:/tmp/
+
+# 2. Install wheel
+pip3 install /tmp/mlx90640-*.whl
+
+# The wrapper is configured to find libMLX90640_API.so using rpath,
+# so the .so must be in the same directory as the wheel or in system paths
+```
+
+**Option 2: System-wide library installation**
+
+```bash
+# On target system
+# 1. Install C++ library system-wide
+cd /path/to/pimoroni-mlx90640-library
+make I2C_MODE=LINUX
+sudo make install  # Installs to /usr/local/lib
+
+# 2. Install Python wrapper
+pip3 install mlx90640-*.whl
+```
+
+**Option 3: Development/source deployment**
+
+```bash
+# On target system - deploy entire source tree
+git clone <repo>
+cd pimoroni-mlx90640-library/python-wrapper
+make all
+source venv/bin/activate
+```
+
+### Quick Start: New Project Setup
+
+**Scenario 1: Using installed wrapper in a new project**
+
+If you've already run `make all` in python-wrapper, simply use it:
+
+```bash
+# Create your new project
+mkdir ~/my_thermal_app
+cd ~/my_thermal_app
+
+# Create your app (wrapper is already in venv)
+cat > thermal_app.py <<EOF
+import mlx90640
+camera = mlx90640.MLX90640Camera()
+camera.init()
+camera.set_refresh_rate(16)
+frame = camera.get_frame()
+print(f"Max: {frame.max():.2f}°C, Min: {frame.min():.2f}°C")
+camera.cleanup()
+EOF
+
+# Run (activate the existing venv first)
+source /path/to/pimoroni-mlx90640-library/python-wrapper/venv/bin/activate
+python thermal_app.py
+```
+
+**Scenario 2: Standalone project with wheel**
+
+For a completely independent project:
+
+```bash
+# 1. Create project with its own venv
+mkdir ~/my_thermal_app
+cd ~/my_thermal_app
+python3 -m venv venv
+source venv/bin/activate
+
+# 2. Copy required files
+cp /path/to/pimoroni-mlx90640-library/libMLX90640_API.so .
+cp /path/to/pimoroni-mlx90640-library/python-wrapper/dist/mlx90640-*.whl .
+
+# 3. Install wheel
+pip install mlx90640-*.whl
+
+# 4. Create your app
+cat > thermal_app.py <<EOF
+import mlx90640
+camera = mlx90640.MLX90640Camera()
+camera.init()
+camera.set_refresh_rate(16)
+frame = camera.get_frame()
+print(f"Max: {frame.max():.2f}°C, Min: {frame.min():.2f}°C")
+camera.cleanup()
+EOF
+
+# 5. Run
+python thermal_app.py
+```
+
+**Scenario 3: Source-based project**
+
+Deploy with full source control:
+
+```bash
+# 1. Create project and copy wrapper source
+mkdir ~/my_thermal_app
+cd ~/my_thermal_app
+
+# 2. Copy wrapper source files
+mkdir mlx90640
+cp /path/to/python-wrapper/mlx90640/{__init__.py,camera.h,camera.cpp} mlx90640/
+cp /path/to/python-wrapper/{setup.py,pyproject.toml,requirements.txt,MANIFEST.in} .
+cp /path/to/pimoroni-mlx90640-library/libMLX90640_API.so .
+
+# 3. Install in development mode
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+
+# 4. Create and run your app
+python thermal_app.py
+```
+
+### Required Files Reference
+
+**Core Runtime Files** (always needed):
+
+| File | Location | Purpose |
+|------|----------|---------|
+| `libMLX90640_API.so` | Repository root | C++ library with sensor API and I2C drivers |
+| `mlx90640-*.whl` OR source | python-wrapper/ | Python wrapper (wheel or source files) |
+
+**Source Deployment Files** (if deploying from source):
+
+| File | Purpose | Required |
+|------|---------|----------|
+| `mlx90640/__init__.py` | Package interface | Yes |
+| `mlx90640/camera.cpp` | C++ implementation (pybind11) | Yes |
+| `mlx90640/camera.h` | C++ header | Yes |
+| `setup.py` | Build configuration | Yes |
+| `pyproject.toml` | PEP 517/518 config | Yes |
+| `requirements.txt` | Python dependencies | Recommended |
+| `MANIFEST.in` | Source distribution includes | Optional |
+
+**Build Artifacts** (auto-generated, don't copy):
+
+| File | Notes |
+|------|-------|
+| `mlx90640/_camera.*.so` | Compiled extension (rebuilt by pip) |
+| `mlx90640.egg-info/` | Package metadata (auto-generated) |
+| `__pycache__/` | Python bytecode (auto-generated) |
+| `dist/` | Built wheels (only copy .whl file itself) |
+| `venv/` | Virtual environment (don't copy, create new) |
+
+**Dependencies** (auto-installed by pip):
+- `pybind11>=2.6.0` - C++/Python bindings
+- `numpy` - Zero-copy array interface
+
+### Important Notes
+
+- The wrapper extension is compiled for the target architecture (ARM for Raspberry Pi)
+- Ensure I2C is enabled on the target system
+- The wheel includes the compiled C++ extension, so no compiler needed on target
+- For production, use release builds (default) for best performance
+
+## Makefile Targets
+
+| Target | Description |
+|--------|-------------|
+| `make all` | **Build C++ library + install wrapper** (recommended) |
+| `make help` | Show all available targets and explanations |
+| `make install-dev` | Install wrapper in development mode (auto-creates venv) |
+| `make build` | Build C++ extension in-place (for testing C++ changes) |
+| `make wheel` | Build distributable wheel package |
+| `make dist` | Build wheel and show deployment information |
+| `make install` | Install wheel into venv (production-style install) |
+| `make clean` | Remove all build artifacts and venv |
+
+### Target Explanations
+
+- **`build`**: Compiles the C++ extension only. Use this when you modify camera.cpp and want to test changes without reinstalling the package.
+- **`install-dev`**: Editable installation (`pip install -e .`). Python file changes are immediately visible without rebuild. C++ changes still require `make build`.
+- **`install`**: Builds a wheel and installs it as an isolated package. Use this to test the final package or for production deployment.
+
+## Usage
+
+### Basic Example
+
+```python
+import mlx90640
+import numpy as np
+
+# Initialize camera
+camera = mlx90640.MLX90640Camera()
+camera.init()
+
+# Configure
+camera.set_refresh_rate(16)      # 16 Hz
+camera.set_emissivity(0.95)      # For human skin
+camera.set_resolution(3)         # 19-bit (highest quality)
+
+# Capture frame (blocking, returns when ready)
+frame = camera.get_frame()
+
+# frame is a read-only NumPy array of 768 floats (24 rows x 32 cols)
+print(f"Frame shape: {frame.shape}")  # (768,)
+print(f"Frame dtype: {frame.dtype}")  # float32
+print(f"Max temperature: {frame.max():.2f}°C")
+print(f"Min temperature: {frame.min():.2f}°C")
+print(f"Average: {frame.mean():.2f}°C")
+
+# Cleanup
+camera.cleanup()
+```
+
+### Real-time Processing Loop
+
+```python
+import mlx90640
+import numpy as np
+import time
+
+camera = mlx90640.MLX90640Camera()
+camera.init()
+camera.set_refresh_rate(16)
+
+frame_count = 0
+start_time = time.time()
+
+try:
+    while True:
+        # Blocking call - returns when sensor has new frame
+        # Zero-copy NumPy array for maximum performance
+        frame = camera.get_frame()
+
+        # Process frame using NumPy operations
+        max_temp = frame.max()
+
+        # Reshape to 2D for image processing
+        frame_2d = frame.reshape(24, 32)
+
+        frame_count += 1
+        fps = frame_count / (time.time() - start_time)
+        print(f"Frame {frame_count}, FPS: {fps:.2f}, Max: {max_temp:.2f}°C")
+
+except KeyboardInterrupt:
+    pass
+finally:
+    camera.cleanup()
+```
+
+### Frame Layout
+
+The `get_frame()` method returns a read-only NumPy array of 768 floats representing a 24x32 pixel thermal image:
+
+```python
+import numpy as np
+
+frame = camera.get_frame()
+
+# Frame is 1D array, shape (768,)
+print(frame.shape)  # (768,)
+
+# Access pixel at row=10, col=15 (1D indexing)
+pixel = frame[10 * 32 + 15]
+
+# Reshape to 2D for easier access
+frame_2d = frame.reshape(24, 32)
+pixel = frame_2d[10, 15]
+
+# Iterate all pixels (NumPy style)
+for row in range(24):
+    for col in range(32):
+        temp = frame_2d[row, col]
+        print(f"({row},{col}): {temp:.2f}°C")
+
+# Note: The array is read-only (zero-copy from C++)
+# To modify, create a copy:
+frame_copy = frame.copy()
+```
+
+## API Reference
+
+### MLX90640Camera Class
+
+#### Constructor
+
+```python
+camera = mlx90640.MLX90640Camera(addr=0x33)
+```
+
+- `addr` (int, optional): I2C address, default 0x33
+
+#### Methods
+
+**`init()`**
+
+Initialize camera (reads EEPROM, configures chess mode).
+
+- Returns: 0 on success
+- Raises: `RuntimeError` on failure
+
+**`cleanup()`**
+
+Cleanup camera resources.
+
+**`set_refresh_rate(fps)`**
+
+Set frame rate.
+
+- `fps` (int): Frame rate in Hz (1, 2, 4, 8, 16, 32, 64)
+- Note: Rates ≥16 Hz require 1MHz I2C baudrate
+- Raises: `ValueError` for invalid FPS, `RuntimeError` on I2C failure
+
+**`set_resolution(resolution)`**
+
+Set ADC resolution.
+
+- `resolution` (int): 0=16bit, 1=17bit, 2=18bit, 3=19bit
+- Note: Higher resolution = better accuracy but slower
+- Raises: `ValueError` for invalid resolution, `RuntimeError` on I2C failure
+
+**`set_emissivity(emissivity)`**
+
+Set emissivity for temperature calculation.
+
+- `emissivity` (float): 0.1-1.0
+  - 1.0 = Perfect blackbody
+  - 0.95 = Human skin
+  - 0.90 = Matte surfaces
+  - 0.80 = Wood
+- Raises: `ValueError` for out of range value
+
+**`get_frame(interpolate_outliers=True, correct_bad_pixels=True)`**
+
+Capture thermal frame (blocking, self-paced).
+
+- `interpolate_outliers` (bool): Apply outlier interpolation
+- `correct_bad_pixels` (bool): Apply bad pixel correction
+- Returns: **Read-only NumPy array** of 768 floats (temperatures in °C)
+- Shape: `(768,)` - can be reshaped to `(24, 32)` for 2D access
+- Layout: 24 rows × 32 columns, row-major order
+- Performance: Zero-copy design for maximum speed (~15.8 FPS at 16 Hz)
+- Note: Array is read-only. Use `.copy()` if you need to modify values
+- Raises: `RuntimeError` if not initialized or capture fails
+
+**`get_refresh_rate()`**
+
+Get current refresh rate register value.
+
+- Returns: int
+
+**`get_resolution()`**
+
+Get current ADC resolution.
+
+- Returns: int (0-3)
+
+**`get_emissivity()`**
+
+Get current emissivity.
+
+- Returns: float (0.1-1.0)
+
+**`is_initialized()`**
+
+Check if camera is initialized.
+
+- Returns: bool
+
+## Examples
+
+### simple_capture.py
+
+Basic frame capture and statistics display.
+
+```bash
+python examples/simple_capture.py
+```
+
+### ascii_display.py
+
+Real-time ASCII thermal display with Inferno colormap (like C++ test.cpp).
+Includes embedded Inferno colormap function.
+
+```bash
+python examples/ascii_display.py
+```
+
+Press Ctrl+C to exit.
+
+### configure_params.py
+
+Demonstrates all configuration parameters and validates input.
+
+```bash
+python examples/configure_params.py
+```
+
+## Troubleshooting
+
+### Import Error: `No module named 'mlx90640'`
+
+Solution:
+```bash
+cd python-wrapper
+make install-dev
+source venv/bin/activate
+```
+
+### Import Error: `No module named '_camera'`
+
+The C++ extension didn't build. Check:
+```bash
 make clean
+make venv deps
+make install-dev
+```
+
+Look for compilation errors.
+
+### Runtime Error: "Failed to initialize camera"
+
+Possible causes:
+
+1. **I2C not enabled**
+   ```bash
+   # Check if I2C is enabled
+   lsmod | grep i2c
+   # Should show i2c_dev and i2c_bcm2835
+   ```
+
+2. **Camera not connected**
+   ```bash
+   i2cdetect -y 1
+   # Should show device at address 0x33
+   ```
+
+3. **Permission denied**
+   ```bash
+   # Add user to i2c group
+   sudo usermod -a -G i2c $USER
+   # Log out and back in
+   ```
+
+4. **Library not built**
+   ```bash
+   cd ..
+   make I2C_MODE=LINUX
+   ls -l libMLX90640_API.so
+   ```
+
+### Build Error: "MLX90640_API.h: No such file or directory"
+
+The main library is not built.
+
+Solution:
+```bash
+cd /home/maciej/_dev/pimoroni-mlx90640-library
 make I2C_MODE=LINUX
 ```
 
-### BCM2835 Library Mode
+### Low FPS or Dropped Frames
 
-To use the bcm2835 library, install like so:
+1. **Check I2C baudrate**
+   ```bash
+   # Add to /boot/config.txt
+   dtparam=i2c1_baudrate=1000000
+   ```
 
+2. **Reduce resolution**
+   ```python
+   camera.set_resolution(1)  # Use 17-bit instead of 19-bit
+   ```
 
-```text
-make bcm2835
+3. **Check system load**
+   ```bash
+   top
+   # Make sure CPU isn't overloaded
+   ```
+
+## Performance Notes
+
+- **Achievable Frame Rate**:
+  - At 16 Hz refresh rate: ~**15.8 FPS** sustained
+  - At 32 Hz refresh rate: requires 1MHz I2C (see below)
+  - Zero-copy NumPy arrays eliminate Python overhead
+  - Perfect subpage alternation (0→1→0→1) for complete frames
+
+- **Refresh Rate vs I2C Speed**:
+  - 1-8 Hz: 400kHz I2C is sufficient
+  - 16-64 Hz: **Requires 1MHz I2C baudrate** (configure in `/boot/config.txt`)
+
+- **Resolution vs Speed**:
+  - Higher resolution = more accurate but slower ADC conversion
+  - For fast motion: use 16-17 bit (resolution=0 or 1)
+  - For accuracy: use 18-19 bit (resolution=2 or 3)
+
+- **Frame Capture Timing**:
+  - `get_frame()` is blocking and self-paced by the sensor
+  - No need for manual delays (sensor controls timing)
+  - Actual FPS may be slightly lower than configured rate (~15.7-15.8 at 16Hz)
+
+- **Zero-Copy Design**:
+  - Returns read-only NumPy array wrapping internal C++ buffer
+  - No data copying between C++ and Python
+  - Minimal latency for real-time processing
+  - Use `.copy()` only if you need to modify the data
+
+- **Optimization**:
+  - Built with `-O3 -march=native` for maximum performance
+  - Release builds are significantly faster than debug builds
+  - Avoid background I2C processes that can cause bus contention
+
+## Technical Details
+
+### Chess Mode
+
+The sensor operates in chess mode only, where pixels are read in a checkerboard pattern alternating between two **subpages** (0 and 1). This is the mode the sensor is calibrated for and provides the best accuracy.
+
+**How it works**:
+- Each frame captures only half the pixels (one subpage)
+- Subpages alternate: 0 → 1 → 0 → 1 → ...
+- A complete thermal image requires both subpages
+- The sensor alternates automatically at the configured refresh rate
+
+**Why this matters**:
+- The wrapper ensures perfect subpage alternation (verified in testing)
+- If subpage alternation breaks, you'll see "ghosting" in the thermal image
+- The wrapper's zero-copy design maintains consistent ~15.8 FPS without skipping subpages
+
+You can check subpage alternation using:
+```python
+subpage = camera.get_subpage_number()  # Returns 0 or 1
 ```
 
-Or, step by step:
+### Self-Pacing
 
-```text
-wget http://www.airspayce.com/mikem/bcm2835/bcm2835-1.55.tar.gz
-tar xvfz bcm2835-1.55.tar.gz
-cd bcm2835-1.55
-./configure
-make
-sudo make install
+The `get_frame()` call blocks until the sensor has new data ready. This is implemented via polling the sensor's status register. No artificial delays are needed - the sensor's refresh rate controls the timing.
+
+**Implementation details**:
+- `MLX90640_GetFrameData()` blocks until the dataReady bit is set
+- Returns subpage number (0 or 1) on success, negative on error
+- Typical frame time at 16 Hz: ~63ms (31.25ms per subpage)
+- Zero-copy design ensures minimal overhead
+
+### Library Linking
+
+The Python extension links against the local `libMLX90640_API.so` in the parent directory. This means:
+- No system-wide installation needed
+- The .so file must be accessible when running Python code
+- Using `$ORIGIN` in rpath to find the library relative to the extension
+
+### Temperature Calculation
+
+Temperature calculation formula:
+```
+T_object = f(ADC, calibration_params, emissivity, T_ambient)
 ```
 
-### Dependencies
+The emissivity setting affects how reflected temperature is compensated. Higher emissivity (closer to 1.0) means the object radiates more efficiently.
 
-libav for `video` example:
-
-```text
-sudo apt-get install libavutil-dev libavcodec-dev libavformat-dev
-```
-
-SDL2 for `sdlscale` example:
-
-```text
-sudo apt install libsdl2-dev
-```
-
-# Building
-
-After installing the dependencies, you can build the library. Build-modes are:
-
-* `make` or `make all`: build the library and all dependencies. Default is to use standard linux I2C-Drivers, specify Raspberry Pi driver with `make I2C_MODE=RPI`
-* `make examples`: only build examples, see below
-* `sudo make install`: install libraries and headers into `$PREFIX`, default is `/usr/local`
-
-Afterwards you can run the examples or build the python binding, see readme in the subfolder.
-If you built the examples or library using the native bcm2835 I2C-Driver, you need to run all applications and examples as root.
-Hence, `sudo examples/<exampleame>` for one of the examples listed below, or without `sudo` when using the standard Linux driver.
-
-# Examples
-## fbuf
+## Directory Structure
 
 ```
-make examples/fbuf
-sudo examples/fbuf
+python-wrapper/
+├── Makefile               # Build system
+├── README.md              # This file
+├── requirements.txt       # Python dependencies
+├── setup.py               # Python package configuration
+├── pyproject.toml         # PEP 517/518 build config
+├── MANIFEST.in            # Source distribution includes
+├── mlx90640/
+│   ├── __init__.py        # Python package
+│   ├── camera.h           # C++ header
+│   └── camera.cpp         # C++ implementation (pybind11)
+└── examples/
+    ├── simple_capture.py      # Basic usage
+    ├── ascii_display.py       # Real-time display (with embedded colormap)
+    └── configure_params.py    # Configuration demo
 ```
 
-This example uses direct-to-framebuffer rendering and black-blue-green-yellow-red-purple-white false colouring.
+## License
 
-If you have issues with the output image, set "`IMAGE_SCALE`" to a smaller number.
+Apache License 2.0 (matches MLX90640 library)
 
-## interp
+## Credits
 
-```
-make examples/interp
-sudo examples/interp
-```
+- Based on Pimoroni MLX90640 library
+- Melexis MLX90640 sensor
+- Inferno colormap from matplotlib
 
-This example uses direct-to-framebuffer rendering and black-blue-green-yellow-red-purple-white false colouring.
+## Version
 
-It also has 2x bicubic resize filter.
-
-If you have issues with the output image, set "`IMAGE_SCALE`" to a smaller number.
-
-## test
-
-```
-make examples/test
-sudo examples/test
-```
-
-This example draws out to the console using ANSI colours and the full block char.
-
-To see the actual temperature values, change "`FMT_STRING`" from the block char to the float format.
-
-## step
-
-```
-make examples/step
-sudo examples/step
-```
-
-Attempt to run in step by step mode (experimental)
-
-## sdlscale
-
-Displays the MLX90640 sensor full-screen using hardware acceleration in SDL2.
-
-Hit Spacebar to change from aspect-ratio correct to full-screen-stretched modes.
-
-Hit Escape to exit.
-
-```
-make examples/sdlscale
-sudo examples/sdlscale
-```
-
-Requires SDL2 libraries:
-
-```
-sudo apt install libsdl2-dev
-```
-
-On Raspbian Lite you may wish to build SDL2 from source with X support disabled to avoid pulling in ~200MB of dependencies. Before configuring/compiling ensure you have `libudev-dev` installed for input support.
+1.0.0
