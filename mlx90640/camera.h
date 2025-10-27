@@ -13,13 +13,13 @@
 
 class MLX90640Camera {
 private:
+    uint8_t i2c_addr;
+    float emissivity;
+    bool initialized;
     paramsMLX90640 params;
     uint16_t eeprom[832];
     uint16_t frame_buffer[834];
     float temp_buffer[768];
-    float emissivity;
-    uint8_t i2c_addr;
-    bool initialized;
 
 public:
     /**

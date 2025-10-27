@@ -96,7 +96,7 @@ build: install-dev
 # Build distributable wheel
 wheel: install-dev
 	@echo "Building wheel package..."
-	$(VENV_PYTHON) setup.py bdist_wheel
+	$(VENV_PYTHON) -m build --wheel
 	@echo ""
 	@echo "Wheel built successfully:"
 	@ls -lh dist/*.whl
