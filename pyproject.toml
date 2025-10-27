@@ -9,10 +9,6 @@ description = "Python wrapper for MLX90640 thermal camera (chess mode only)"
 readme = "README.md"
 requires-python = ">=3.6"
 dependencies = ["pybind11>=2.6"]
-
-[project.urls]
-Homepage = "https://github.com/dude84/mlx90640-lib-python"
-Repository = "https://github.com/dude84/mlx90640-lib-python"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -26,3 +22,7 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: System :: Hardware",
 ]
+
+[project.urls]
+Homepage = "https://github.com/dude84/mlx90640-lib-python"
+Repository = "https://github.com/dude84/mlx90640-lib-python"
