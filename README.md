@@ -135,7 +135,7 @@ pip3 install /tmp/mlx90640-*.whl
 ```bash
 # On target system
 # 1. Install C++ library system-wide
-cd /path/to/pimoroni-mlx90640-library
+cd /path/to/mlx90640-lib-python
 make I2C_MODE=LINUX
 sudo make install  # Installs to /usr/local/lib
 
@@ -148,7 +148,7 @@ pip3 install mlx90640-*.whl
 ```bash
 # On target system - deploy entire source tree
 git clone <repo>
-cd pimoroni-mlx90640-library/python-wrapper
+cd mlx90640-lib-python/python-wrapper
 make all
 source venv/bin/activate
 ```
@@ -176,7 +176,7 @@ camera.cleanup()
 EOF
 
 # Run (activate the existing venv first)
-source /path/to/pimoroni-mlx90640-library/python-wrapper/venv/bin/activate
+source /path/to/mlx90640-lib-python/python-wrapper/venv/bin/activate
 python thermal_app.py
 ```
 
@@ -192,8 +192,8 @@ python3 -m venv venv
 source venv/bin/activate
 
 # 2. Copy required files
-cp /path/to/pimoroni-mlx90640-library/libMLX90640_API.so .
-cp /path/to/pimoroni-mlx90640-library/python-wrapper/dist/mlx90640-*.whl .
+cp /path/to/mlx90640-lib-python/libMLX90640_API.so .
+cp /path/to/mlx90640-lib-python/python-wrapper/dist/mlx90640-*.whl .
 
 # 3. Install wheel
 pip install mlx90640-*.whl
@@ -226,7 +226,7 @@ cd ~/my_thermal_app
 mkdir mlx90640
 cp /path/to/python-wrapper/mlx90640/{__init__.py,camera.h,camera.cpp} mlx90640/
 cp /path/to/python-wrapper/{setup.py,pyproject.toml,requirements.txt,MANIFEST.in} .
-cp /path/to/pimoroni-mlx90640-library/libMLX90640_API.so .
+cp /path/to/mlx90640-lib-python/libMLX90640_API.so .
 
 # 3. Install in development mode
 python3 -m venv venv
@@ -572,7 +572,7 @@ The main library is not built.
 
 Solution:
 ```bash
-cd /home/maciej/_dev/pimoroni-mlx90640-library
+cd /home/maciej/_dev/mlx90640-lib-python
 make I2C_MODE=LINUX
 ```
 

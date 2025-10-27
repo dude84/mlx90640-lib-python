@@ -47,7 +47,7 @@ setup(
     description='Python wrapper for MLX90640 thermal camera (chess mode only)',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='',
+    url='https://github.com/dude84/mlx90640-lib-python',
     packages=['mlx90640'],
     ext_modules=ext_modules,
     install_requires=['pybind11>=2.6.0', 'numpy>=1.19.0'],
