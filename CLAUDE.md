@@ -128,11 +128,31 @@ The sensor's I2C baudrate directly affects achievable framerate:
 - **400 kHz**: Max ~8 FPS (compatible with other I2C devices)
 - **1 MHz**: Max ~32 FPS (if MLX90640 is the only high-speed device)
 
-Configure in `/boot/config.txt`:
+Configure in `/boot/firmware/config.txt` (or `/boot/config.txt` on older systems):
 ```
 dtparam=i2c_arm=on
-dtparam=i2c1_baudrate=1000000
+dtparam=i2c_arm_baudrate=1000000
 ```
+
+### I2C Bus Separation
+
+The Raspberry Pi has multiple I2C buses:
+- **i2c-1 (GPIO I2C)**: Controlled by `i2c_arm_baudrate`, exposed on GPIO pins 2/3
+- **i2c-0/i2c-10 (Camera I2C)**: Controlled by `i2c_vc_baudrate`, used by CSI camera (e.g., imx219)
+
+The MLX90640 connects to **i2c-1** (GPIO), so setting `i2c_arm_baudrate=1000000` only affects the thermal sensor, not the camera. The two buses can be configured independently:
+
+```
+# MLX90640 on i2c-1 (GPIO pins) at 1MHz for high frame rates
+dtparam=i2c_arm=on
+dtparam=i2c_arm_baudrate=1000000
+
+# imx219 camera on i2c-0/i2c-10 at default 100kHz (optional, explicit config)
+dtparam=i2c_vc=on
+dtparam=i2c_vc_baudrate=100000
+```
+
+This allows using 1MHz for the MLX90640 without affecting other I2C devices.
 
 Valid refresh rates: 1, 2, 4, 8, 16, 32, 64 Hz
 

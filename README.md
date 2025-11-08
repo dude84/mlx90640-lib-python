@@ -49,10 +49,18 @@ The Python wrapper automatically builds the main library when you run `make all`
 
 Enable I2C and set baudrate for high-speed operation:
 
-Edit `/boot/config.txt`:
+Edit `/boot/firmware/config.txt` (or `/boot/config.txt` on older systems):
 ```
 dtparam=i2c_arm=on
-dtparam=i2c1_baudrate=1000000
+dtparam=i2c_arm_baudrate=1000000
+```
+
+**Important**: The MLX90640 uses the GPIO I2C bus (i2c-1), which is separate from the camera's I2C bus. The `i2c_arm_baudrate` setting only affects i2c-1 (GPIO pins 2/3) and won't impact other devices like the imx219 camera, which uses its own I2C bus (i2c-0/i2c-10) at a lower speed.
+
+If you want to explicitly configure the camera I2C speed (optional):
+```
+dtparam=i2c_vc=on
+dtparam=i2c_vc_baudrate=100000  # Default speed for camera control
 ```
 
 Reboot and verify:
