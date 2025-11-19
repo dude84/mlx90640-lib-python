@@ -89,6 +89,7 @@ def main():
     camera.set_refresh_rate(16)
     camera.set_resolution(3)
     camera.set_emissivity(1.0)
+    camera.set_rotation(0)
 
     # Display header
     print(f"\nMLX90640 Real-time ASCII Display")
